@@ -1,0 +1,46 @@
+# Byte-compiled / C / shared object files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+.Python
+env/
+venv/
+.venv/
+env.bak/
+venv.bak/
+
+# Logs
+logs/
+*.log
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Docker
+.dockerignore
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Railway
+.railway/
+
+# Tests coverage
+htmlcov/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+
+# Supabase local
+supabase/

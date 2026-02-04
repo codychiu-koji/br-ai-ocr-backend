@@ -1,0 +1,13 @@
+{
+  &quot;$schema&quot;: &quot;https://railway.app/railway.schema.json&quot;,
+  &quot;build&quot;: {
+    &quot;builder&quot;: &quot;DOCKERFILE&quot;
+  },
+  &quot;deploy&quot;: {
+    &quot;startCommand&quot;: &quot;python ocr_service_v2.py&quot;,
+    &quot;restartPolicyType&quot;: &quot;ON_FAILURE&quot;,
+    &quot;restartPolicyMaxRetries&quot;: 10
+  },
+  &quot;healthcheckPath&quot;: &quot;/health&quot;,
+  &quot;restartPolicyTimeoutS&quot;: 300
+}
