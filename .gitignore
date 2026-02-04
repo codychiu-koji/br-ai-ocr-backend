@@ -47,3 +47,13 @@ supabase/
 *.deb
 *.AppImage
 downloads/
+
+# 安裝檔案
+*.deb
+*.AppImage
+*.exe
+*.msi
+
+# 下載資料夾
+downloads/
+temp/
