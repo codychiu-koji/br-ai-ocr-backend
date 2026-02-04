@@ -44,3 +44,6 @@ coverage.xml
 
 # Supabase local
 supabase/
+*.deb
+*.AppImage
+downloads/
