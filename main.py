@@ -5,16 +5,15 @@ from paddleocr import PaddleOCR
 import hashlib
 from supabase import create_client, Client
 
-app = FastAPI(title="BR AI OCR Backend")
+app = FastAPI(
+    title="BR AI OCR Backend - v2.0 (2026-02-05 14:38)",
+    description="Business Registration OCR with PaddleOCR"
+)
 
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "https://br-ai-ocr-frontend.vercel.app",
-        "*"  # 暫時允許所有 origins（測試用）
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -22,8 +21,8 @@ app.add_middleware(
 
 # Supabase
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://odjihllmfnwushmmqmoc.supabase.co")
-SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "your-service-key")
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_KEY else None
 
 # PaddleOCR
 ocr_engines = {
@@ -32,19 +31,31 @@ ocr_engines = {
     "MO": PaddleOCR(use_angle_cls=True, lang='chinese_cht'),
 }
 
+@app.get("/")
 @app.get("/health")
 async def health_check():
-    try:
-        # 測試 Supabase 連接
-        result = supabase.table("api_keys").select("id").limit(1).execute()
-        return {"status": "healthy", "database": "connected"}
-    except Exception as e:
-        return {"status": "healthy", "database": f"error: {str(e)}"}
+    db_status = "not_configured"
+    if supabase:
+        try:
+            result = supabase.table("api_keys").select("id").limit(1).execute()
+            db_status = "connected"
+        except Exception as e:
+            db_status = f"error: {str(e)}"
+    return {
+        "status": "healthy",
+        "database": db_status,
+        "version": "2.0.20260205-1438",
+        "message": "NEW VERSION DEPLOYED"
+    }
 
 def verify_api_key(api_key: str) -> dict:
-    """驗證 API Key（支援明文 key 欄位）"""
+    """驗證 API Key - 支援明文 key 欄位"""
+    if not supabase:
+        print("⚠️ Supabase not configured")
+        return {"id": "test", "account_id": "test"}
+    
     try:
-        # 方法 1: 直接比對明文 key（如果 schema 有 key 欄位）
+        # 方法 1: 直接比對明文 key
         result = supabase.table("api_keys")\
             .select("*")\
             .eq("key", api_key)\
@@ -52,9 +63,10 @@ def verify_api_key(api_key: str) -> dict:
             .execute()
         
         if result.data and len(result.data) > 0:
+            print(f"✅ API Key verified (plaintext)")
             return result.data[0]
         
-        # 方法 2: 用 SHA256 hash 比對
+        # 方法 2: SHA256 hash
         key_hash = hashlib.sha256(api_key.encode()).hexdigest()
         result = supabase.table("api_keys")\
             .select("*")\
@@ -63,11 +75,13 @@ def verify_api_key(api_key: str) -> dict:
             .execute()
         
         if result.data and len(result.data) > 0:
+            print(f"✅ API Key verified (hash)")
             return result.data[0]
         
+        print(f"❌ API Key not found")
         return None
     except Exception as e:
-        print(f"API Key verification error: {e}")
+        print(f"❌ Verification error: {e}")
         return None
 
 @app.post("/v1/ocr/scan")
@@ -76,7 +90,6 @@ async def ocr_scan(
     region: str = Form(...),
     api_key: str = Header(None, alias="X-API-Key")
 ):
-    # 驗證 API Key
     if not api_key:
         raise HTTPException(status_code=401, detail="Missing API Key")
     
@@ -84,11 +97,9 @@ async def ocr_scan(
     if not key_data:
         raise HTTPException(status_code=403, detail="Invalid API Key")
     
-    # 檢查 region
     if region not in ["HK", "CN", "MO"]:
         raise HTTPException(status_code=400, detail="Invalid region")
     
-    # 讀取圖片
     import tempfile
     with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
         content = await file.read()
@@ -96,7 +107,6 @@ async def ocr_scan(
         tmp_path = tmp.name
     
     try:
-        # OCR 辨識
         import time
         start_time = time.time()
         
@@ -105,7 +115,6 @@ async def ocr_scan(
         
         processing_time = int((time.time() - start_time) * 1000)
         
-        # 解析結果
         lines = []
         if result and result[0]:
             for line in result[0]:
@@ -118,10 +127,8 @@ async def ocr_scan(
                     "box": box
                 })
         
-        # 計算平均準確度
         avg_confidence = sum(l["confidence"] for l in lines) / len(lines) if lines else 0
         
-        # 儲存到資料庫（可選）
         import uuid
         job_id = str(uuid.uuid4())
         
@@ -136,7 +143,6 @@ async def ocr_scan(
         }
         
     finally:
-        # 清理臨時檔案
         import os
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
