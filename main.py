@@ -6,7 +6,7 @@ import hashlib
 from supabase import create_client, Client
 
 app = FastAPI(
-    title="BR AI OCR Backend - v2.0 (2026-02-05 14:38)",
+    title="BR AI OCR Backend - v2.1 FINAL",
     description="Business Registration OCR with PaddleOCR"
 )
 
@@ -44,18 +44,30 @@ async def health_check():
     return {
         "status": "healthy",
         "database": db_status,
-        "version": "2.0.20260205-1438",
-        "message": "NEW VERSION DEPLOYED"
+        "version": "v2.1-20260205-1452",
+        "commit": "latest",
+        "message": "NEW VERSION DEPLOYED VIA RAILWAY UP"
+    }
+
+@app.get("/version")
+async def version_check():
+    """明確的版本檢查 endpoint"""
+    return {
+        "version": "v2.1-20260205-1452",
+        "commit_hash": "latest",
+        "deployed_at": "2026-02-05 14:52 HKT",
+        "method": "railway up",
+        "status": "✅ NEW CODE CONFIRMED"
     }
 
 def verify_api_key(api_key: str) -> dict:
-    """驗證 API Key - 支援明文 key 欄位"""
+    """驗證 API Key"""
     if not supabase:
-        print("⚠️ Supabase not configured")
+        print("⚠️ Supabase not configured, test mode")
         return {"id": "test", "account_id": "test"}
     
     try:
-        # 方法 1: 直接比對明文 key
+        # 方法 1: 明文 key
         result = supabase.table("api_keys")\
             .select("*")\
             .eq("key", api_key)\
