@@ -11,26 +11,20 @@ SUPABASE_URL = os.getenv("SUPABASE_URL", "https://odjihllmfnwushmmqmoc.supabase.
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_KEY else None
 
-ocr_engines = {
-    "HK": PaddleOCR(use_angle_cls=True, lang='chinese_cht'),
-    "CN": PaddleOCR(use_angle_cls=True, lang='ch'),
-    "MO": PaddleOCR(use_angle_cls=True, lang='chinese_cht'),
-}
+ocr_engines = {"HK": PaddleOCR(use_angle_cls=True, lang='chinese_cht'), "CN": PaddleOCR(use_angle_cls=True, lang='ch'), "MO": PaddleOCR(use_angle_cls=True, lang='chinese_cht')}
 
 @app.get("/")
 @app.get("/health")
 def health():
-    db = "not_configured"
+    db = "ok"
     if supabase:
-        try:
-            supabase.table("api_keys").select("id").limit(1).execute()
-            db = "connected"
-        except: pass
+        try: supabase.table("api_keys").select("id").limit(1).execute()
+        except: db = "error"
     return {"status": "healthy", "database": db, "version": "v2.1-final"}
 
 @app.get("/version")
 def version():
-    return {"version": "v2.1-final", "deployed": "2026-02-05-1530", "method": "railway_up"}
+    return {"version": "v2.1-final", "time": "2026-02-05-1553"}
 
 def verify_key(k):
     if not supabase: return {"id": "test"}
@@ -44,23 +38,16 @@ def verify_key(k):
 
 @app.post("/v1/ocr/scan")
 async def scan(file: UploadFile = File(...), region: str = Form(...), api_key: str = Header(None, alias="X-API-Key")):
-    if not api_key or not verify_key(api_key):
-        raise HTTPException(403, "Invalid API Key")
-    if region not in ["HK", "CN", "MO"]:
-        raise HTTPException(400, "Invalid region")
-    
+    if not api_key or not verify_key(api_key): raise HTTPException(403, "Invalid API Key")
+    if region not in ["HK", "CN", "MO"]: raise HTTPException(400, "Invalid region")
     with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
         tmp.write(await file.read())
         tmp_path = tmp.name
-    
     try:
         start = time.time()
         result = ocr_engines[region].ocr(tmp_path, cls=True)
         ms = int((time.time() - start) * 1000)
-        lines = []
-        if result and result[0]:
-            for line in result[0]:
-                lines.append({"text": line[1][0], "confidence": float(line[1][1])})
+        lines = [{"text": line[1][0], "confidence": float(line[1][1])} for line in result[0]] if result and result[0] else []
         avg = sum(l["confidence"] for l in lines) / len(lines) if lines else 0
         return {"status": "success", "job_id": str(uuid.uuid4()), "region": region, "lines": lines, "total_lines": len(lines), "confidence_avg": avg, "processing_time_ms": ms}
     finally:
